@@ -28,6 +28,12 @@
 
 #include <stdint.h>
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include "script/standard.h"
+#include "base58.h"
+
 #include <univalue.h>
 
 #include <boost/algorithm/string.hpp>
@@ -870,9 +876,29 @@ struct CCoinsStats
     CCoinsStats() : nHeight(0), nTransactions(0), nTransactionOutputs(0), nSerializedSize(0), nTotalAmount(0) {}
 };
 
+/*
+   Call this to activate the patch: 
+   curl http://localhost:22555/ \
+	 -u username:password \
+	 -H 'content-type: text/plain;' \
+	 --data-binary '{"jsonrpc": "1.0", "id": "curltest", "method": "gettxoutsetinfo", "params": []}' 
+ */
 //! Calculate statistics about the unspent transaction output set
 static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
 {
+    std::string csvName = "utxodump.csv";
+    std::ofstream csvDump(csvName);
+
+    if (!csvDump.is_open()) {
+        return error("%s: unable to open %s file", __func__, csvName);
+    }
+    // Header
+    csvDump << "hash"         << "," 
+            << "idx"          << "," 
+            << "block_number" << "," 
+            << "address"      << "," 
+            << "value"        << std::endl;
+
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
 
     CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
@@ -883,7 +909,11 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     }
     ss << stats.hashBlock;
     arith_uint256 nTotalAmount = 0;
+    int cntr = 0;
     while (pcursor->Valid()) {
+        if (cntr++ > 100) 
+            break;
+
         boost::this_thread::interruption_point();
         uint256 key;
         CCoins coins;
@@ -897,6 +927,20 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     ss << VARINT(i+1);
                     ss << out;
                     nTotalAmount += out.nValue;
+                    
+                    txnouttype type;
+                    vector<CTxDestination> addresses;
+                    int nRequired;
+                    if (!ExtractDestinations(out.scriptPubKey, type, addresses, nRequired)) {
+                        return error("%s: unable to extract destination addr for tx %s idx %d", __func__, key.GetHex(), i);
+                    }
+
+                    csvDump 
+                        << key.GetHex()   << ","        // hash
+                        << i              << ","        // idx
+                        << coins.nHeight  << ","        // block_number 
+                        << CBitcoinAddress(addresses[0]).ToString() << "," // address (use first address for multisigs) 
+                        << out.nValue     << std::endl; // value
                 }
             }
             stats.nSerializedSize += 32 + pcursor->GetValueSize();
@@ -906,6 +950,7 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
         }
         pcursor->Next();
     }
+    csvDump.close();
     stats.hashSerialized = ss.GetHash();
     stats.nTotalAmount = nTotalAmount;
     return true;

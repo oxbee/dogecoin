@@ -929,11 +929,11 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     ScriptPubKeyToJSON(out.scriptPubKey, s, true); 
 
                     UniValue o(UniValue::VOBJ);
-                    o.pushKV("hash", key.GetHex())
-                    o.pushKV("idx", i)
-                    o.pushKV("bn", coins.nHeight)
-                    o.pushKV("pkey",o)
-                    o.pushKV("val", out.nValue)
+                    o.pushKV("hash", key.GetHex());
+                    o.pushKV("idx", i);
+                    o.pushKV("bn", coins.nHeight);
+                    o.pushKV("pkey",o);
+                    o.pushKV("val", out.nValue);
 
                     if (firstObj) {
                         jDump <<o.write();

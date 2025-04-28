@@ -906,7 +906,7 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     ss << stats.hashBlock;
     arith_uint256 nTotalAmount = 0;
     int cntr = 0;
-    bool firstObj = true
+    bool firstObj = true;
     while (pcursor->Valid()) {
         if (cntr++ > 100) 
             break;

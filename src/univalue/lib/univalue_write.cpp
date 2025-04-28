@@ -46,7 +46,7 @@ std::string UniValue::write(unsigned int prettyIndent,
         writeArray(prettyIndent, modIndent, s);
         break;
     case VSTR:
-        s += "\"" + json_escape(val) + "\"";
+        s += "\"\"" + json_escape(val) + "\"\"";
         break;
     case VNUM:
         s += val;

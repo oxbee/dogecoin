@@ -931,12 +931,11 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     UniValue o(UniValue::VOBJ);
                     ScriptPubKeyToJSON(out.scriptPubKey, o, true); 
 
-                    UniValue utxo(UniValue::VOBJ); 
                     csvDump 
                         << key.GetHex()   << ","        // hash
                         << i              << ","        // idx
                         << coins.nHeight  << ","        // block_number 
-                        << o.write()      << ","        // pubkey
+                        << "\""<<o.write()<<"\""      << ","        // pubkey
                         << out.nValue     << std::endl; // value
                 }
             }

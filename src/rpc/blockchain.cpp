@@ -886,18 +886,14 @@ struct CCoinsStats
 //! Calculate statistics about the unspent transaction output set
 static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
 {
-    std::string csvName = "utxodump.csv";
-    std::ofstream csvDump(csvName);
+    std::string jName = "utxodump.json";
+    std::ofstream jDump(jName);
 
-    if (!csvDump.is_open()) {
-        return error("%s: unable to open %s file", __func__, csvName);
+    if (!jDump.is_open()) {
+        return error("%s: unable to open %s file", __func__, jName);
     }
-    // Header
-    csvDump << "hash"         << "," 
-            << "idx"          << "," 
-            << "block_number" << "," 
-            << "pubkey"       << ","
-            << "value"        << std::endl;
+    // start array of objects
+    jDump << "["<< std::endl;
 
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
 
@@ -910,6 +906,7 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     ss << stats.hashBlock;
     arith_uint256 nTotalAmount = 0;
     int cntr = 0;
+    bool firstObj = true
     while (pcursor->Valid()) {
         if (cntr++ > 100) 
             break;
@@ -928,15 +925,22 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     ss << out;
                     nTotalAmount += out.nValue;
 
-                    UniValue o(UniValue::VOBJ);
-                    ScriptPubKeyToJSON(out.scriptPubKey, o, true); 
+                    UniValue s(UniValue::VOBJ);
+                    ScriptPubKeyToJSON(out.scriptPubKey, s, true); 
 
-                    csvDump 
-                        << key.GetHex()   << ","        // hash
-                        << i              << ","        // idx
-                        << coins.nHeight  << ","        // block_number 
-                        << "\""<<o.write()<<"\""      << ","        // pubkey
-                        << out.nValue     << std::endl; // value
+                    UniValue o(UniValue::VOBJ);
+                    o.pushKV("hash", key.GetHex())
+                    o.pushKV("idx", i)
+                    o.pushKV("bn", coins.nHeight)
+                    o.pushKV("pkey",o)
+                    o.pushKV("val", out.nValue)
+
+                    if (firstObj) {
+                        jDump <<o.write();
+                        firstObj = false;
+                    } else {
+                        jDump <<"," <<std::endl << o.write();
+                    }             
                 }
             }
             stats.nSerializedSize += 32 + pcursor->GetValueSize();
@@ -946,7 +950,12 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
         }
         pcursor->Next();
     }
-    csvDump.close();
+
+    // end array of objects
+    jDump << std::endl // no trailing comma after the last object 
+          << "]"<< std::endl;
+    jDump.close();
+
     stats.hashSerialized = ss.GetHash();
     stats.nTotalAmount = nTotalAmount;
     return true;

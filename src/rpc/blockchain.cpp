@@ -896,7 +896,8 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     csvDump << "hash"         << "," 
             << "idx"          << "," 
             << "block_number" << "," 
-            << "vout"         << std::endl;
+            << "pubkey"       << ","
+            << "value"        << std::endl;
 
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
 
@@ -927,11 +928,16 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     ss << out;
                     nTotalAmount += out.nValue;
 
+                    UniValue o(UniValue::VOBJ);
+                    ScriptPubKeyToJSON(out.scriptPubKey, o, true); 
+
+                    UniValue utxo(UniValue::VOBJ); 
                     csvDump 
                         << key.GetHex()   << ","        // hash
                         << i              << ","        // idx
                         << coins.nHeight  << ","        // block_number 
-                        << out.ToString() << std::endl; // vout
+                        << o.write()      << ","        // pubkey
+                        << out.nValue     << std::endl; // value
                 }
             }
             stats.nSerializedSize += 32 + pcursor->GetValueSize();

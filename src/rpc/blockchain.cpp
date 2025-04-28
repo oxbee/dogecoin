@@ -930,9 +930,9 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
 
                     UniValue o(UniValue::VOBJ);
                     o.pushKV("hash", key.GetHex());
-                    o.pushKV("idx", i);
+                    o.pushKV("idx", (uint64_t)i);
                     o.pushKV("bn", coins.nHeight);
-                    o.pushKV("pkey",o);
+                    o.pushKV("pkey", o);
                     o.pushKV("val", out.nValue);
 
                     if (firstObj) {

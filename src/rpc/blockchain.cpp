@@ -896,8 +896,7 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     csvDump << "hash"         << "," 
             << "idx"          << "," 
             << "block_number" << "," 
-            << "address"      << "," 
-            << "value"        << std::endl;
+            << "vout"         << std::endl;
 
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
 
@@ -927,20 +926,12 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     ss << VARINT(i+1);
                     ss << out;
                     nTotalAmount += out.nValue;
-                    
-                    txnouttype type;
-                    vector<CTxDestination> addresses;
-                    int nRequired;
-                    if (!ExtractDestinations(out.scriptPubKey, type, addresses, nRequired)) {
-                        return error("%s: unable to extract destination addr for tx %s idx %d", __func__, key.GetHex(), i);
-                    }
 
                     csvDump 
                         << key.GetHex()   << ","        // hash
                         << i              << ","        // idx
                         << coins.nHeight  << ","        // block_number 
-                        << CBitcoinAddress(addresses[0]).ToString() << "," // address (use first address for multisigs) 
-                        << out.nValue     << std::endl; // value
+                        << out.ToString() << std::endl; // vout
                 }
             }
             stats.nSerializedSize += 32 + pcursor->GetValueSize();

@@ -876,6 +876,34 @@ struct CCoinsStats
     CCoinsStats() : nHeight(0), nTransactions(0), nTransactionOutputs(0), nSerializedSize(0), nTotalAmount(0) {}
 };
 
+static bool HandleCsvDumpFiles(std::ofstream& csvDump, int& cntr) {
+    int oneGigabyte = 0x40000000;
+    if (csvDump.is_open() && csvDump.tellp() < oneGigabyte * 3.9) {
+        // No need to create a new file
+        return true;
+    }
+
+    char fName[100];
+    snprintf(fName, sizeof(fName), "utxodump.%0*d.csv", 4, cntr);
+
+    csvDump.close(); // close previously opened file 
+    csvDump.open(fName, std::ofstream::out | std::ofstream::trunc);
+    if (!csvDump.is_open()) {
+        return error("%s: unable to open %s file", __func__, fName);
+    }
+
+    cntr++;
+
+    // Header
+    csvDump << "hash"     << "," 
+        << "idx"          << "," 
+        << "block_number" << "," 
+        << "address"      << "," 
+        << "value"        << std::endl;
+
+    return true;
+}
+
 /*
    Call this to activate the patch: 
    curl http://localhost:22555/ \
@@ -886,19 +914,6 @@ struct CCoinsStats
 //! Calculate statistics about the unspent transaction output set
 static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
 {
-    std::string csvName = "utxodump.csv";
-    std::ofstream csvDump(csvName);
-
-    if (!csvDump.is_open()) {
-        return error("%s: unable to open %s file", __func__, csvName);
-    }
-    // Header
-    csvDump << "hash"         << "," 
-            << "idx"          << "," 
-            << "block_number" << "," 
-            << "address"      << "," 
-            << "value"        << std::endl;
-
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
 
     CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
@@ -909,10 +924,17 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     }
     ss << stats.hashBlock;
     arith_uint256 nTotalAmount = 0;
-    int cntr = 0;
+
+    std::ofstream csvDump;
+    int csvFileCntr = 0;
+
     while (pcursor->Valid()) {
-        if (cntr++ > 100) 
-            break;
+        // if (csvFileCntr > 1) 
+        //     break;
+
+        if (!HandleCsvDumpFiles(csvDump, csvFileCntr)) {
+            return false;
+        }
 
         boost::this_thread::interruption_point();
         uint256 key;
@@ -932,7 +954,9 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     vector<CTxDestination> addresses;
                     int nRequired;
                     if (!ExtractDestinations(out.scriptPubKey, type, addresses, nRequired)) {
-                        return error("%s: unable to extract destination addr for tx %s idx %d", __func__, key.GetHex(), i);
+                        // return error("%s: unable to extract destination addr for tx %s idx %d", __func__, key.GetHex(), i);
+                        // OP_RETURN - has no address, will leave it empty
+                        // skip unparsable VoutScrips, i.e. left the address filed empty
                     }
 
                     std::string address = (addresses.size() == 0) ? 
